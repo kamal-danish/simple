@@ -1,0 +1,68 @@
+import { Injectable, Injector } from '@angular/core';
+import { HttpEvent, HttpInterceptor, HttpHandler, HttpRequest } from '@angular/common/http';
+import { Observable } from 'rxjs/Rx';
+import 'rxjs/add/observable/throw'
+import 'rxjs/add/operator/catch';
+import { Config } from '../config';
+import { Router } from '@angular/router';
+import {MatDialog} from '@angular/material';
+
+
+@Injectable()
+export class MyHttpInterceptor implements HttpInterceptor {
+    constructor(private config: Config, private router: Router,private dialogRef: MatDialog) { }
+
+    intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+
+        // console.log("intercepted request ... ");
+
+        // Clone the request to add the new header.
+        const authReq = req.clone({
+            setHeaders: {
+                'Access-Token': this.getToken(),
+                'userLoginTimeId':this.getUserLoginTimeId(),
+                'Content-Type': 'application/json'
+                // 'Content-Type':'multipart/form-data'
+            }
+        });
+
+        // console.log("Sending request with new header now ...");
+
+        //send the newly created request
+        return next.handle(authReq)
+            .catch((error, caught) => {
+                //intercept the respons error and displace it to the console
+                // console.log("Error Occurred");
+                console.log(error.status);
+
+                if (error.status == 401 || error.status == 0) {
+                    console.log("i am called")
+                    this.router.navigate(['']);
+                    sessionStorage.clear();
+                    this.dialogRef.closeAll();
+                    if (this.router.url !== "/") {
+                        this.config.openSnackBar('Session Expired',false);
+                    }
+                }
+                else {
+                    this.config.openSnackBar('Error Occured',false);
+                }
+                //return the error to the method that called it
+                return Observable.throw(error);
+            }) as any;
+    }
+
+    getToken() {
+        //   this.verifyToken();
+        if (sessionStorage.getItem('token') != null)
+            return sessionStorage.getItem('token');
+        else
+            return "null";
+    }
+    getUserLoginTimeId(){
+        if (sessionStorage.getItem('userLoginTimeId') != null)
+        return sessionStorage.getItem('userLoginTimeId');
+    else
+        return "null";
+    }
+}
